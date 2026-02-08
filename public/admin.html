@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - PATRON-MINI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a2e;
+            --text-primary: #ffffff;
+            --border: rgba(255, 255, 255, 0.1);
+            --radius: 12px;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); }
+        .app { display: flex; min-height: 100vh; }
+        .sidebar { width: 280px; background: var(--bg-secondary); border-right: 1px solid var(--border); padding: 2rem 0; }
+        .main-content { flex: 1; padding: 2rem; }
+        .card { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        .btn { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .nav-link { display: block; padding: 1rem 2rem; color: rgba(255, 255, 255, 0.7); text-decoration: none; }
+        .nav-link.active { color: white; background: var(--primary); }
+        .status-badge { padding: 0.25rem 0.5rem; border-radius: 20px; font-size: 0.8rem; }
+        .status-connected { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .hidden { display: none !important; }
+        
+        /* Auth Overlay */
+        #adminAuth {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-primary); z-index: 2000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .auth-card { width: 400px; padding: 2rem; }
+        .form-input { width: 100%; padding: 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: white; margin: 1rem 0; }
+    </style>
+</head>
+<body>
+    <!-- Admin Password Prompt -->
+    <div id="adminAuth">
+        <div class="card auth-card">
+            <h2 style="text-align: center; margin-bottom: 1rem;">Admin Authentication</h2>
+            <p style="color: rgba(255,255,255,0.6); text-align: center;">Enter the admin password to proceed</p>
+            <input type="password" id="adminPassword" class="form-input" placeholder="Admin Password">
+            <button class="btn btn-primary" style="width: 100%;" onclick="tryAdminLogin()">Unlock Dashboard</button>
+            <p id="authError" style="color: var(--danger); margin-top: 1rem; text-align: center;" class="hidden"></p>
+        </div>
+    </div>
+
+    <div class="app hidden" id="adminContent">
+        <aside class="sidebar">
+            <div style="padding: 0 2rem 2rem; font-size: 1.5rem; font-weight: 800; color: var(--primary);">
+                <i class="fas fa-user-shield"></i> Admin Panel
+            </div>
+            <nav>
+                <a href="/" class="nav-link"><i class="fas fa-arrow-left"></i> Back to User Panel</a>
+                <a href="#" class="nav-link active" onclick="showSection('users')">Users Management</a>
+                <a href="#" class="nav-link" onclick="showSection('bots')">Global Bots</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div id="usersSection">
+                <h2>User Management</h2>
+                <div class="card">
+                    <table class="table" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Bots</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="botsSection" class="hidden">
+                <h2>Global Bots</h2>
+                <div class="card">
+                    <table class="table" id="botsTable">
+                        <thead>
+                            <tr>
+                                <th>Bot Name</th>
+                                <th>Owner</th>
+                                <th>Phone</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/';
+
+        async function tryAdminLogin() {
+            const password = document.getElementById('adminPassword').value;
+            const errorEl = document.getElementById('authError');
+            
+            try {
+                const res = await fetch('/api/admin/auth', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('adminAuth').classList.add('hidden');
+                    document.getElementById('adminContent').classList.remove('hidden');
+                    fetchStats();
+                } else {
+                    errorEl.innerText = data.message;
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorEl.innerText = 'Connection error';
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function fetchStats() {
+            const res = await fetch('/api/admin/dashboard', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (!data.success) {
+                // If token is admin but password wasn't entered this session
+                // We show the auth card (handled by default visibility)
+                return;
+            }
+            renderUsers(data.data.recentUsers);
+            renderBots(data.data.recentBots);
+        }
+
+        function renderUsers(users) {
+            const tbody = document.querySelector('#usersTable tbody');
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.username}</td>
+                    <td>${user.email}</td>
+                    <td>${user.bots?.length || 0}</td>
+                    <td>${user.isBanned ? '<span style="color:red">Banned</span>' : 'Active'}</td>
+                    <td>
+                        <button class="btn ${user.isBanned ? 'btn-success' : 'btn-danger'}" onclick="toggleBan('${user.id}', ${!user.isBanned})">
+                            ${user.isBanned ? 'Unban' : 'Ban'}
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderBots(bots) {
+            const tbody = document.querySelector('#botsTable tbody');
+            tbody.innerHTML = bots.map(bot => `
+                <tr>
+                    <td>${bot.botName}</td>
+                    <td>${bot.user?.username || 'N/A'}</td>
+                    <td>${bot.phoneNumber}</td>
+                    <td><span class="status-badge status-${bot.status}">${bot.status}</span></td>
+                    <td>
+                        <button class="btn btn-danger" onclick="deleteBot('${bot.id}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleBan(userId, banned) {
+            await fetch(`/api/admin/users/${userId}/ban`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ banned })
+            });
+            fetchStats();
+        }
+
+        async function deleteBot(botId) {
+            if (!confirm('Delete this bot?')) return;
+            await fetch(`/api/admin/bots/${botId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            fetchStats();
+        }
+
+        function showSection(section) {
+            document.getElementById('usersSection').classList.toggle('hidden', section !== 'users');
+            document.getElementById('botsSection').classList.toggle('hidden', section !== 'bots');
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.toggle('active', link.innerText.toLowerCase().includes(section));
+            });
+        }
+    </script>
+</body>
+</html>

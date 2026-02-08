@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PATRON MINI</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(45deg, #1a1a2e, #16213e, #0f3460);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      width: 100%;
+    }
+
+    .box {
+      width: 100%;
+      max-width: 400px;
+      padding: 40px 30px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    #text {
+      color: #fff;
+    }
+
+    .centered-text {
+      color: #fff;
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #00dbde, #fc00ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    h4 {
+      color: #a1c4fd;
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    h6 {
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      position: relative;
+    }
+
+    h6:before, h6:after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 30%;
+      height: 1px;
+      background: rgba(255,255,255,0.2);
+    }
+
+    h6:before {
+      left: 0;
+    }
+
+    h6:after {
+      right: 0;
+    }
+
+    .input-container {
+      display: flex;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 2px;
+      gap: 2px;
+      width: 100%;
+      max-width: 350px;
+      margin: 0 auto;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .input-container:focus-within {
+      border-color: rgba(255,255,255,0.3);
+      box-shadow: 0 0 0 3px rgba(138, 43, 226, 0.2);
+    }
+
+    .input-container input {
+      flex: 1;
+      padding: 15px;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .input-container input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+      font-weight: 300;
+    }
+
+    .input-container input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .input-container button {
+      padding: 15px 25px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 120px;
+    }
+
+    .input-container button:hover {
+      background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+      transform: translateY(-2px);
+    }
+
+    .input-container button:active {
+      transform: translateY(0);
+    }
+
+    #waiting-message, #pair a {
+      color: #fff;
+      font-size: 1rem;
+      margin-top: 25px;
+      display: block;
+    }
+
+    #copy {
+      cursor: pointer;
+      color: #fff;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      background: rgba(255,255,255,0.1);
+      padding: 12px 20px;
+      border-radius: 10px;
+      display: inline-block;
+      margin-top: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    #copy:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    .fa-user {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      padding: 10px;
+    }
+
+    @media (max-width: 500px) {
+      .box {
+        padding: 30px 20px;
+        border-radius: 15px;
+      }
+      
+      .centered-text {
+        font-size: 1.5rem;
+      }
+      
+      .input-container {
+        flex-direction: column;
+      }
+      
+      .input-container button {
+        width: 100%;
+        padding: 15px;
+      }
+      
+      h6:before, h6:after {
+        width: 25%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="main">
+      <div class="box" id="box">
+        <div id="text">
+          <i class="fa fa-user"></i>
+          <h3 class="centered-text">LINK WITH PHONE NUMBER</h3>
+          <h4>PATRON MINI BOT V1</h4>
+          <h6>SECURE CONNECTION</h6>
+          <div class="input-container">
+            <input placeholder="+234xxxxxxxxx" type="number" id="number" name="">
+            <button id="submit">SUBMIT</button>
+          </div>
+          <a id="waiting-message" class="centered-text" style="display: none;">In process...</a>
+          <main id="pair"></main>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js"></script>
+  <script>
+    let a = document.getElementById("pair");
+    let b = document.getElementById("submit");
+    let c = document.getElementById("number");
+    let box = document.getElementById("box");
+
+    async function Copy() {
+      let text = document.getElementById("copy").innerText;
+      let obj = document.getElementById("copy");
+      await navigator.clipboard.writeText(obj.innerText.replace('CODE: ', ''));
+      obj.innerText = "COPIED ✅";
+      obj.style = "background: rgba(76, 175, 80, 0.2); border-color: rgba(76, 175, 80, 0.5);";
+      setTimeout(() => {
+        obj.innerText = text;
+        obj.style = "background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);";
+      }, 1500);
+    }
+
+    b.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (!c.value) {
+        a.innerHTML = '<a style="color:#ff6b6b;font-weight:bold;display:block;margin-top:15px;">❗ Enter your WhatsApp number with country code.</a>';
+      } else if (c.value.replace(/[^0-9]/g, "").length < 11) {
+        a.innerHTML = '<a style="color:#ff6b6b;font-weight:bold;display:block;margin-top:15px;">❌ Invalid number format ❌</a>';
+      } else {
+        const bc = c.value.replace(/[^0-9]/g, "");
+        let bb = "";
+        let bbc = "";
+        const cc = bc.split('');
+        cc.forEach((a, index) => {
+          bbc += a;
+          if (bbc.length === 3 || bbc.length === 8) {
+            bb += " " + a;
+          } else {
+            bb += a;
+          }
+        });
+        c.type = "text";
+        c.value = "+" + bb;
+        c.style = "color:#fff;font-size:18px";
+        a.innerHTML = '<a style="color:#a1c4fd;font-weight:bold;display:block;margin-top:15px;">Please wait while we process your request...</a>';
+        try {
+          let { data } = await axios(`/code?number=${bc}`);
+          let code = data.code || "Service Unavailable";
+          a.innerHTML = '<font id="copy" onclick="Copy()" style="color:#fff;font-weight:bold;font-size:1.1rem;">CODE: <span style="font-weight:800;">' + code + '</span></font><br><br><small style="color:rgba(255,255,255,0.6);">Click to copy</small>';
+        } catch (error) {
+          a.innerHTML = '<a style="color:#ff6b6b;font-weight:bold;display:block;margin-top:15px;">❌ Error fetching code. Please try again ❌</a>';
+        }
+      }
+    });
+  </script>
+</body>
+</html>
