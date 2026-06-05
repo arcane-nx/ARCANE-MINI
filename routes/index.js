@@ -8,7 +8,6 @@ const jwt = require('jsonwebtoken');
 const QRCode = require('qrcode');
 const multer = require('multer');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 
 const { User, Bot, Op } = require('../database');
 const { authenticateToken, requireAdmin, botLimiter, authLimiter } = require('../middleware');
