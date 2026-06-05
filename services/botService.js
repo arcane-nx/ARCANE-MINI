@@ -16,7 +16,7 @@ const {
 const fs = require('fs-extra');
 const path = require('path');
 const pino = require('pino');
-const { Bot } = require('../database/models');
+const { Bot } = require('../database');
 
 const activeSockets = new Map();
 const SESSION_BASE_PATH = './sessions';

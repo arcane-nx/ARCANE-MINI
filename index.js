@@ -15,16 +15,12 @@ const path = require('path');
 const chalk = require('chalk');
 
 const config = require('./config');
-const { connectDatabase } = require('./database/connection');
-const { generalLimiter } = require('./middleware/rateLimiter');
+const { connectDatabase } = require('./database');
+const { generalLimiter } = require('./middleware');
 const { startAllBots } = require('./services/botService');
 
 // Import routes
-const authRoutes = require('./routes/auth');
-const botRoutes = require('./routes/bot');
-const adminRoutes = require('./routes/admin');
-const userRoutes = require('./routes/user');
-const pairRoutes = require('./routes/pair');
+const { authRouter, botRouter, adminRouter, userRouter, pairRouter } = require('./routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -54,11 +50,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 global.io = io;
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/bot', botRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/user', userRoutes);
-app.use('/pair', pairRoutes);
+app.use('/api/auth', authRouter);
+app.use('/api/bot', botRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/user', userRouter);
+app.use('/pair', pairRouter);
 
 // Serve main application
 app.get('/', (req, res) => {
