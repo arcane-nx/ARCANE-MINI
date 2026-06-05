@@ -42,7 +42,13 @@ const migrateToJSON = async () => {
 
         if (fs.existsSync(dbPath) && (!usersExist || !botsExist)) {
             console.log(chalk.yellow('🔄 Found legacy SQLite database and JSON files are empty. Initiating automatic migration...'));
-            const sqlite3 = require('sqlite3').verbose();
+            let sqlite3;
+            try {
+                sqlite3 = require('sqlite3').verbose();
+            } catch (err) {
+                console.log(chalk.yellow('⚠️ sqlite3 package is not installed. Skipping SQLite to JSON migration.'));
+                return;
+            }
             const db = new sqlite3.Database(dbPath);
 
             return new Promise((resolve) => {

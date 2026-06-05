@@ -31,7 +31,7 @@
   {
     "id": "d97bd59b-dff8-45da-853e-ebd94ec52d25",
     "createdAt": "2026-06-05T15:30:26.218Z",
-    "updatedAt": "2026-06-05T15:40:34.593Z",
+    "updatedAt": "2026-06-05T15:49:22.748Z",
     "botName": "PATRON-MINI",
     "status": "connected",
     "isActive": true,
@@ -45,15 +45,15 @@
       "antiDelete": true
     },
     "statistics": {
-      "messagesReceived": 38,
-      "messagesSent": 5,
-      "commandsExecuted": 5,
+      "messagesReceived": 58,
+      "messagesSent": 10,
+      "commandsExecuted": 10,
       "uptime": 0
     },
     "userId": "28377bae-ee19-4b56-b40d-ee44a2b71dce",
     "phoneNumber": "+2347041039367",
     "qrCode": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHQAAAB0CAYAAABUmhYnAAAAAklEQVR4AewaftIAAAKxSURBVO3BQY7cQAwEwUxC//9yeY88NSCMtB7TjDA/WGMUa5RijVKsUYo1SrFGKdYoxRqlWKMUa5RijVKsUYo1SrFGKdYoxRrl4kMqvykJd6icJOFE5Tcl4RPFGqVYoxRrlIuHJeFJKneodEk4UemScJKEJ6k8qVijFGuUYo1y8TKVO5Jwh0qXhE6lS0KXhE+o3JGENxVrlGKNUqxRLv4zKl0SJinWKMUapVijXAyXhBOVLgn/smKNUqxRijXKxcuS8DepnCThE0n4JsUapVijFGuUi4epfLMkdCpdEk5UvlmxRinWKMUaxfzgH6bSJeF/VqxRijVKsUa5+JBKl4RO5UlJ6JLQqdyRhBOVJyXhTcUapVijFGsU84MPqHRJOFHpktCpdEnoVE6S0KnckYQ7VLokdConSXhSsUYp1ijFGuXiZSonKl0SOpUuCZ1Kp3KShE6lU7kjCSdJ6FTeVKxRijVKsUa5eJjKJ1S6JHQqn1A5ScIdKt+kWKMUa5RijXLxoSScqHRJ6FROVLokdCp3JKFTOVE5SUKncpKENxVrlGKNUqxRLl6WhJMkfBOVLgmdyh1J6FS6JDypWKMUa5RijXLxIZXflIQuCZ1Kl4ROpUvCicqJyjcp1ijFGqVYo1w8LAlPUjlRuSMJb0pCp3Ki0iXhE8UapVijFGuUi5ep3JGEN6l0SehUuiScqJwk4TcVa5RijVKsUS6GSUKn0iWhU+mScEcSTlS6JLypWKMUa5RijXIxXBLuUDlJQqfSJeFvKtYoxRqlWKNcvCwJb0rCiUqXhC4JJyqdyonK31SsUYo1SrFGuXiYym9S6ZLwCZUuCZ3KSRI6lU6lS8KTijVKsUYp1ijmB2uMYo1SrFGKNUqxRinWKMUapVijFGuUYo1SrFGKNUqxRinWKMUapVij/AHCUP3+WehtPAAAAABJRU5ErkJggg==",
     "pairingCode": "6K5NGDRR",
-    "lastSeen": "2026-06-05T15:35:21.070Z"
+    "lastSeen": "2026-06-05T15:48:34.813Z"
   }
 ]
