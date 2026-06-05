@@ -652,22 +652,68 @@
             display: none !important;
         }
 
-        /* Mobile Menu Toggle */
-        .menu-toggle {
+        /* Mobile Header Bar */
+        .mobile-header {
             display: none;
             position: fixed;
-            top: 1rem;
-            left: 1rem;
-            width: 44px;
-            height: 44px;
-            background: var(--bg-sidebar);
-            border: 1px solid var(--border-dim);
-            border-radius: var(--radius-md);
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(9, 9, 20, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-dim);
+            align-items: center;
+            padding: 0 1.25rem;
+            z-index: 999;
+            justify-content: space-between;
+        }
+
+        .menu-toggle-btn {
+            background: transparent;
+            border: none;
             color: var(--text-main);
+            font-size: 1.25rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
-            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: background 0.2s;
+        }
+
+        .menu-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .mobile-page-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            flex: 1;
+            margin-left: 0.75rem;
+            background: linear-gradient(90deg, #fff, var(--text-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .mobile-user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            border: 1.5px solid var(--accent);
+            object-fit: cover;
+            box-shadow: 0 0 8px rgba(99, 102, 241, 0.25);
         }
 
         @media (max-width: 900px) {
@@ -679,20 +725,27 @@
             }
             .main-content {
                 margin-left: 0;
-                padding: 1.5rem;
-                padding-top: 5rem;
+                padding: 1.25rem;
+                padding-top: calc(60px + 1.25rem);
             }
-            .menu-toggle {
+            .mobile-header {
                 display: flex;
+            }
+            .main-content .page-header {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Mobile Menu Toggle Button -->
-    <button class="menu-toggle" id="mobileMenuToggle">
-        <i class="fas fa-bars"></i>
-    </button>
+    <!-- Mobile Header Bar -->
+    <header class="mobile-header" id="mobileHeader">
+        <button class="menu-toggle-btn" id="mobileMenuToggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        <span class="mobile-page-title" id="mobilePageTitle">Dashboard</span>
+        <div class="mobile-user-avatar" id="mobileHeaderAvatar">?</div>
+    </header>
 
     <div class="app-container">
         <!-- Sidebar Navigation -->
@@ -756,8 +809,8 @@
                     <div id="loginAlert"></div>
                     <form id="loginFormElement">
                         <div class="form-group">
-                            <label class="form-label" for="loginEmail">Username or Email</label>
-                            <input type="text" id="loginEmail" class="form-input" placeholder="Enter your username or email" required>
+                            <label class="form-label" for="loginUsername">Username</label>
+                            <input type="text" id="loginUsername" class="form-input" placeholder="Enter your username" required>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="loginPassword">Password</label>
@@ -1082,7 +1135,7 @@
             // Login submission
             document.getElementById('loginFormElement').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const email = document.getElementById('loginEmail').value;
+                const username = document.getElementById('loginUsername').value;
                 const password = document.getElementById('loginPassword').value;
                 const alert = document.getElementById('loginAlert');
                 alert.innerHTML = '';
@@ -1091,7 +1144,7 @@
                     const res = await fetch('/api/auth/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
+                        body: JSON.stringify({ username, password })
                     });
                     const data = await res.json();
                     if (data.success) {
@@ -1146,6 +1199,13 @@
                     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
                     document.getElementById(`${page}Page`).classList.remove('hidden');
                     activePage = page;
+
+                    // Update mobile header title dynamically
+                    const pageTitleText = page.charAt(0).toUpperCase() + page.slice(1);
+                    const mobilePageTitle = document.getElementById('mobilePageTitle');
+                    if (mobilePageTitle) {
+                        mobilePageTitle.innerText = page === 'bots' ? 'My Bots' : pageTitleText;
+                    }
                     
                     if (window.innerWidth <= 900) {
                         document.getElementById('sidebar').classList.remove('active');
@@ -1331,6 +1391,7 @@
         }
 
         function showDashboard() {
+            window.scrollTo(0, 0); // Reset scroll position to top
             document.getElementById('authContainer').classList.add('hidden');
             document.getElementById('dashboardContainer').classList.remove('hidden');
             
@@ -1352,11 +1413,17 @@
             document.getElementById('sidebarUsername').innerText = currentUser.username;
             
             const avatarHtml = currentUser.avatar 
-                ? `<img src="${currentUser.avatar}" class="user-avatar" style="border:none;">`
+                ? `<img src="${currentUser.avatar}" class="user-avatar" style="border:none; width:100%; height:100%;">`
                 : currentUser.username.substring(0, 2).toUpperCase();
 
             document.getElementById('sidebarAvatar').innerHTML = avatarHtml;
             document.getElementById('profileAvatar').innerHTML = avatarHtml;
+
+            // Update mobile header avatar
+            const mobileHeaderAvatar = document.getElementById('mobileHeaderAvatar');
+            if (mobileHeaderAvatar) {
+                mobileHeaderAvatar.innerHTML = avatarHtml;
+            }
 
             // Load values to fields
             document.getElementById('profileFirstName').value = currentUser.firstName || '';
@@ -1453,7 +1520,7 @@
                     <div style="display:flex; flex-direction:column; gap:0.25rem;">
                         <div class="bot-stat-item">
                             <span>Phone Number</span>
-                            <span>+${bot.phoneNumber}</span>
+                            <span>+${bot.phoneNumber.replace(/^\+/, '')}</span>
                         </div>
                         <div class="bot-stat-item">
                             <span>Messages Recv</span>

@@ -398,17 +398,6 @@ class User extends JSONModel {
                 throw new ValidationError('User with this username already exists');
             }
         }
-        
-        if (data.email !== undefined && data.email !== null && data.email !== '') {
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-                throw new ValidationError('Invalid email format');
-            }
-            const records = this._load();
-            const exists = records.find(r => r.email && r.email.toLowerCase() === data.email.toLowerCase() && r.id !== data.id);
-            if (exists) {
-                throw new ValidationError('User with this email already exists');
-            }
-        }
 
         if (!isUpdate || data.password !== undefined) {
             if (!data.password || data.password.length < 6 || data.password.length > 100) {
@@ -448,12 +437,15 @@ class Bot extends JSONModel {
             }
             
             const cleanNumber = data.phoneNumber.replace(/[^0-9]/g, '');
-            if (!/^[0-9]+$/.test(cleanNumber) || cleanNumber.length < 10 || cleanNumber.length > 15) {
+            if (!cleanNumber || cleanNumber.length < 10 || cleanNumber.length > 15) {
                 throw new ValidationError('Phone number must be numeric and between 10 and 15 digits');
             }
 
+            // Normalize in the data object so it gets saved clean
+            data.phoneNumber = cleanNumber;
+
             const records = this._load();
-            const exists = records.find(r => r.phoneNumber === data.phoneNumber && r.id !== data.id);
+            const exists = records.find(r => r.phoneNumber === cleanNumber && r.id !== data.id);
             if (exists) {
                 throw new ValidationError('Bot with this phone number already exists');
             }
@@ -545,8 +537,7 @@ const migrateToJSON = async () => {
                                 ...row,
                                 isActive: row.isActive === undefined ? true : !!row.isActive,
                                 isBanned: !!row.isBanned,
-                                isAdmin: !!row.isAdmin,
-                                emailVerified: !!row.emailVerified
+                                isAdmin: !!row.isAdmin
                             }));
                             fs.writeJsonSync(usersFile, users, { spaces: 2 });
                             console.log(chalk.green(`✅ Migrated ${users.length} users successfully.`));

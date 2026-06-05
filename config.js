@@ -14,7 +14,7 @@ module.exports = {
     JWT_EXPIRES_IN: '7d',
     
     // Admin Configuration
-    ADMIN_PASSWORD: 'admin123', // Change this in production
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123', // Change this in production
     
     // Rate Limiting
     RATE_LIMIT_WINDOW: 15 * 60 * 1000, // 15 minutes

@@ -2,9 +2,19 @@
   {
     "id": "28377bae-ee19-4b56-b40d-ee44a2b71dce",
     "createdAt": "2026-06-05T15:29:53.688Z",
-    "updatedAt": "2026-06-05T15:29:53.688Z",
+    "updatedAt": "2026-06-05T16:22:14.100Z",
     "username": "arcane_nx",
     "password": "$2a$12$WjdkLEfRmsqZHdGrHcDZsOdx0VWnSo5oJUlQGp3NXKCY3EsL8Trc6",
-    "emailVerificationToken": "b35a4828-97f2-4bdc-b71e-41b899c09a1f"
+    "emailVerificationToken": "b35a4828-97f2-4bdc-b71e-41b899c09a1f",
+    "lastLogin": "2026-06-05T16:18:41.459Z",
+    "isAdmin": true
+  },
+  {
+    "id": "0929889c-2464-45fb-be81-c9d457911404",
+    "createdAt": "2026-06-05T16:30:12.604Z",
+    "updatedAt": "2026-06-05T17:01:14.826Z",
+    "username": "Test",
+    "password": "$2a$12$WZFtkOvP3cepeQmkhXJWceaU0Lv6sml5dFrvbOspRR8pugnzvpUXW",
+    "isBanned": false
   }
 ]

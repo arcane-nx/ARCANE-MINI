@@ -119,7 +119,7 @@ authRouter.post('/register', authLimiter, async (req, res) => {
         });
 
         const token = jwt.sign(
-            { userId: user.id, email: user.email },
+            { userId: user.id, username: user.username },
             config.JWT_SECRET,
             { expiresIn: config.JWT_EXPIRES_IN }
         );
@@ -131,7 +131,6 @@ authRouter.post('/register', authLimiter, async (req, res) => {
                 user: {
                     id: user.id,
                     username: user.username,
-                    email: user.email,
                     firstName: user.firstName,
                     lastName: user.lastName,
                     isAdmin: user.isAdmin
@@ -159,22 +158,17 @@ authRouter.post('/register', authLimiter, async (req, res) => {
 // Login
 authRouter.post('/login', authLimiter, async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { username, password } = req.body;
 
-        if (!email || !password) {
+        if (!username || !password) {
             return res.status(400).json({
                 success: false,
-                message: 'Username/Email and password are required'
+                message: 'Username and password are required'
             });
         }
 
         const user = await User.findOne({
-            where: {
-                [Op.or]: [
-                    { email: email },
-                    { username: email }
-                ]
-            }
+            where: { username }
         });
 
         if (!user) {
@@ -202,7 +196,7 @@ authRouter.post('/login', authLimiter, async (req, res) => {
         await user.update({ lastLogin: new Date() });
 
         const token = jwt.sign(
-            { userId: user.id, email: user.email },
+            { userId: user.id, username: user.username },
             config.JWT_SECRET,
             { expiresIn: config.JWT_EXPIRES_IN }
         );
@@ -214,7 +208,6 @@ authRouter.post('/login', authLimiter, async (req, res) => {
                 user: {
                     id: user.id,
                     username: user.username,
-                    email: user.email,
                     firstName: user.firstName,
                     lastName: user.lastName,
                     isAdmin: user.isAdmin,
@@ -256,13 +249,14 @@ botRouter.post('/create', authenticateToken, botLimiter, async (req, res) => {
         if (!phoneNumber) {
             return res.status(400).json({ success: false, message: 'Phone number is required' });
         }
-        const existingBot = await Bot.findOne({ where: { phoneNumber } });
+        const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
+        const existingBot = await Bot.findOne({ where: { phoneNumber: cleanNumber } });
         if (existingBot) {
             return res.status(409).json({ success: false, message: 'Bot with this phone number already exists' });
         }
         const bot = await Bot.create({
             userId: req.user.id,
-            phoneNumber,
+            phoneNumber: cleanNumber,
             botName: botName || 'QUEEN-MINI',
             status: 'disconnected'
         });
@@ -406,13 +400,13 @@ adminRouter.get('/dashboard', authenticateToken, requireAdmin, async (req, res) 
         const recentUsers = await User.findAll({
             limit: 10,
             order: [['createdAt', 'DESC']],
-            attributes: ['id', 'username', 'email', 'createdAt', 'isActive', 'isBanned']
+            attributes: ['id', 'username', 'createdAt', 'isActive', 'isBanned', 'isAdmin']
         });
 
         const recentBots = await Bot.findAll({
             limit: 10,
             order: [['createdAt', 'DESC']],
-            include: [{ model: User, as: 'user', attributes: ['username', 'email'] }]
+            include: [{ model: User, as: 'user', attributes: ['username'] }]
         });
 
         res.json({
@@ -437,7 +431,6 @@ adminRouter.get('/users', authenticateToken, requireAdmin, async (req, res) => {
         const whereClause = search ? {
             [Op.or]: [
                 { username: { [Op.iLike]: `%${search}%` } },
-                { email: { [Op.iLike]: `%${search}%` } },
                 { firstName: { [Op.iLike]: `%${search}%` } },
                 { lastName: { [Op.iLike]: `%${search}%` } }
             ]
@@ -503,7 +496,7 @@ adminRouter.get('/bots', authenticateToken, requireAdmin, async (req, res) => {
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['createdAt', 'DESC']],
-            include: [{ model: User, as: 'user', attributes: ['id', 'username', 'email', 'firstName', 'lastName'] }]
+            include: [{ model: User, as: 'user', attributes: ['id', 'username', 'firstName', 'lastName'] }]
         });
 
         res.json({
@@ -589,7 +582,6 @@ userRouter.put('/profile', authenticateToken, async (req, res) => {
             data: {
                 id: user.id,
                 username: user.username,
-                email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 phoneNumber: user.phoneNumber,
