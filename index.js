@@ -24,6 +24,7 @@ const authRoutes = require('./routes/auth');
 const botRoutes = require('./routes/bot');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
+const pairRoutes = require('./routes/pair');
 
 const app = express();
 const server = http.createServer(app);
@@ -57,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/bot', botRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
+app.use('/pair', pairRoutes);
 
 // Serve main application
 app.get('/', (req, res) => {

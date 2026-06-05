@@ -4,7 +4,7 @@
  */
 
 const express = require('express');
-const { Op } = require('sequelize');
+const { Op } = require('../database/connection');
 const { User, Bot } = require('../database/models');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const config = require('../config');

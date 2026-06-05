@@ -65,9 +65,9 @@ module.exports = {
     
     // Copyright Information
     COPYRIGHT: {
-        COMPANY: 'patron Developers',
-        OWNER: 'Patron',
-        GITHUB: 'https://github.com/Itzpatron',
+        COMPANY: 'Arcane Developers',
+        OWNER: 'Arcane',
+        GITHUB: 'https://github.com/arcane-nx',
         YEAR: new Date().getFullYear()
     }
 };

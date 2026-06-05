@@ -1,0 +1,31 @@
+[
+  {
+    "id": "d25720a2-af0e-4c75-8e80-025660536f36",
+    "userId": "a5ecf75b-5d74-4126-b112-359ac823ba42",
+    "phoneNumber": "+2349019529423",
+    "botName": "PATRON-MINI",
+    "status": "disconnected",
+    "isActive": true,
+    "sessionData": null,
+    "qrCode": null,
+    "pairingCode": "BW1R2GPW",
+    "lastSeen": null,
+    "settings": {
+      "autoViewStatus": true,
+      "autoLikeStatus": true,
+      "autoRecording": true,
+      "prefix": ".",
+      "autoReact": false,
+      "antiCall": true,
+      "antiDelete": true
+    },
+    "statistics": {
+      "messagesReceived": 0,
+      "messagesSent": 0,
+      "commandsExecuted": 0,
+      "uptime": 0
+    },
+    "createdAt": "2026-02-07 14:36:14.912 +00:00",
+    "updatedAt": "2026-02-07 14:36:45.835 +00:00"
+  }
+]

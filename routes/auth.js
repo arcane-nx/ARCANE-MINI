@@ -6,7 +6,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { Op } = require('sequelize');
+const { Op } = require('../database/connection');
 const { User } = require('../database/models');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { sendWelcomeEmail } = require('../services/emailService');

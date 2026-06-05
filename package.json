@@ -1,5 +1,5 @@
 {
-  "name": "patron-mini",
+  "name": "arcane-mini",
   "version": "1.0.0",
   "description": "Advanced WhatsApp Bot Management System",
   "main": "index.js",
@@ -9,7 +9,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "npm:patron-pro",
+    "baileys": "^7.0.0-rc13",
     "bcryptjs": "^2.4.3",
     "chalk": "^4.1.2",
     "compression": "^1.7.4",
@@ -44,6 +44,6 @@
     "queen-mini",
     "web-app"
   ],
-  "author": "patron",
+  "author": "arcane",
   "license": "MIT"
 }

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "a5ecf75b-5d74-4126-b112-359ac823ba42",
+    "username": "Arcanenx12",
+    "email": "bolajiolabode2007@gmail.com",
+    "password": "$2a$12$6DgjD3gjyx4ezcL1wvP.X.oAhrHHGfiqibd1rWTc5YDcPFLP8qys.",
+    "firstName": "arcane",
+    "lastName": "nx",
+    "phoneNumber": "07041039367",
+    "isActive": true,
+    "isBanned": false,
+    "isAdmin": false,
+    "emailVerified": false,
+    "emailVerificationToken": "ed27c104-8569-472c-93ce-8d44401e8547",
+    "resetPasswordToken": null,
+    "resetPasswordExpires": null,
+    "lastLogin": null,
+    "theme": "dark",
+    "avatar": null,
+    "createdAt": "2026-02-07 14:26:53.813 +00:00",
+    "updatedAt": "2026-02-07 14:26:53.813 +00:00"
+  }
+]

@@ -12,7 +12,7 @@ const {
     jidNormalizedUser,
     DisconnectReason,
     fetchLatestBaileysVersion
-} = require('@whiskeysockets/baileys');
+} = require('baileys');
 const fs = require('fs-extra');
 const path = require('path');
 const pino = require('pino');
@@ -299,10 +299,65 @@ const startAllBots = async () => {
     }
 };
 
+/**
+ * Generate pairing code without database interaction
+ * @param {string} phoneNumber 
+ * @returns {Promise<string>}
+ */
+const getPairingCodeOnly = async (phoneNumber) => {
+    try {
+        const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
+        if (!cleanNumber) throw new Error('Invalid phone number');
+
+        const sessionPath = path.join(SESSION_BASE_PATH, `temp_${cleanNumber}`);
+        
+        // Ensure directory exists
+        if (!fs.existsSync(sessionPath)) {
+            fs.mkdirSync(sessionPath, { recursive: true });
+        }
+
+        const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+        const { version } = await fetchLatestBaileysVersion();
+        
+        const socket = makeWASocket({
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })),
+            },
+            printQRInTerminal: false,
+            logger: pino({ level: 'silent' }),
+            version,
+            browser: ["Ubuntu", "Chrome", "20.0.04"],
+        });
+
+        socket.ev.on('creds.update', saveCreds);
+
+        // Store socket to keep it alive during pairing
+        activeSockets.set(`temp_${cleanNumber}`, socket);
+
+        socket.ev.on('connection.update', (update) => {
+            const { connection } = update;
+            if (connection === 'open') {
+                console.log(`Temp Bot ${cleanNumber} connected successfully`);
+            } else if (connection === 'close') {
+                activeSockets.delete(`temp_${cleanNumber}`);
+            }
+        });
+
+        await delay(3000);
+        const code = await socket.requestPairingCode(cleanNumber);
+        return code;
+    } catch (error) {
+        console.error('getPairingCodeOnly error:', error);
+        throw error;
+    }
+};
+
 module.exports = {
     createBotSession,
     getBotStatus,
     updateBotSettings,
     disconnectBot,
-    startAllBots
+    startAllBots,
+    getPairingCodeOnly
 };
