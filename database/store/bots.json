@@ -31,7 +31,7 @@
   {
     "id": "d97bd59b-dff8-45da-853e-ebd94ec52d25",
     "createdAt": "2026-06-05T15:30:26.218Z",
-    "updatedAt": "2026-06-05T15:49:22.748Z",
+    "updatedAt": "2026-06-05T15:50:55.467Z",
     "botName": "PATRON-MINI",
     "status": "connected",
     "isActive": true,
@@ -45,7 +45,7 @@
       "antiDelete": true
     },
     "statistics": {
-      "messagesReceived": 58,
+      "messagesReceived": 60,
       "messagesSent": 10,
       "commandsExecuted": 10,
       "uptime": 0

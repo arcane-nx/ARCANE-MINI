@@ -1,14 +1,20 @@
 /**
- * JSON-based database model wrapper mimicking Sequelize structure.
+ * Combined Database Handler (JSON Engine)
  * Copyright © 2025 DarkSide Developers
  */
 
+const chalk = require('chalk');
 const fs = require('fs-extra');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 
-// Custom ValidationError to mimic Sequelize validation errors
+const storePath = path.join(__dirname, 'store');
+const dbPath = path.join(storePath, 'queen-mini.db');
+const usersFile = path.join(storePath, 'users.json');
+const botsFile = path.join(storePath, 'bots.json');
+
+// ValidationError to mock Sequelize validation errors
 class ValidationError extends Error {
     constructor(message) {
         super(message);
@@ -32,7 +38,6 @@ class JSONModel {
         Object.assign(this, data);
     }
 
-    // Static association helpers to prevent errors when models are set up
     static hasMany() {}
     static belongsTo() {}
 
@@ -107,7 +112,6 @@ class JSONModel {
             for (const key of keys) {
                 const value = where[key];
                 
-                // Op.or operator
                 if (key === Op.or) {
                     if (Array.isArray(value)) {
                         const anyMatch = value.some(cond => {
@@ -134,7 +138,6 @@ class JSONModel {
                     continue;
                 }
 
-                // Nested Operators (e.g. { username: { [Op.iLike]: '%search%' } })
                 if (value && typeof value === 'object' && !Array.isArray(value)) {
                     const opKeys = Reflect.ownKeys(value);
                     let matchesOp = true;
@@ -152,12 +155,10 @@ class JSONModel {
                     }
                     if (!matchesOp) return false;
                 } else if (Array.isArray(value)) {
-                    // Check if value is in array (e.g. status: ['connected', 'connecting'])
                     if (!value.includes(record[key])) {
                         return false;
                     }
                 } else {
-                    // Equality
                     if (record[key] !== value) {
                         return false;
                     }
@@ -303,7 +304,6 @@ class JSONModel {
             if (matches) {
                 const updatedFields = { ...values };
                 
-                // If it's User and has password, hash it
                 if (this.modelName === 'User' && updatedFields.password) {
                     updatedFields.password = await bcrypt.hash(updatedFields.password, 12);
                 }
@@ -323,7 +323,6 @@ class JSONModel {
         return [updatedCount];
     }
 
-    // Instance Methods
     async update(values) {
         const records = this.constructor._load();
         const index = records.findIndex(r => r.id === this.id);
@@ -371,8 +370,255 @@ class JSONModel {
     }
 }
 
+// User Model Class
+class User extends JSONModel {
+    static filePath = usersFile;
+    static modelName = 'User';
+
+    async comparePassword(candidatePassword) {
+        if (!this.password) return false;
+        return await bcrypt.compare(candidatePassword, this.password);
+    }
+
+    getFullName() {
+        return `${this.firstName || ''} ${this.lastName || ''}`.trim() || this.username;
+    }
+
+    static validate(data, isUpdate = false) {
+        if (!isUpdate || data.username !== undefined) {
+            if (!data.username || data.username.length < 3 || data.username.length > 30) {
+                throw new ValidationError('Username must be between 3 and 30 characters');
+            }
+            if (!/^[a-zA-Z0-9_]+$/.test(data.username)) {
+                throw new ValidationError('Username can only contain letters, numbers, and underscores');
+            }
+            const records = this._load();
+            const exists = records.find(r => r.username && r.username.toLowerCase() === data.username.toLowerCase() && r.id !== data.id);
+            if (exists) {
+                throw new ValidationError('User with this username already exists');
+            }
+        }
+        
+        if (data.email !== undefined && data.email !== null && data.email !== '') {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+                throw new ValidationError('Invalid email format');
+            }
+            const records = this._load();
+            const exists = records.find(r => r.email && r.email.toLowerCase() === data.email.toLowerCase() && r.id !== data.id);
+            if (exists) {
+                throw new ValidationError('User with this email already exists');
+            }
+        }
+
+        if (!isUpdate || data.password !== undefined) {
+            if (!data.password || data.password.length < 6 || data.password.length > 100) {
+                throw new ValidationError('Password must be between 6 and 100 characters');
+            }
+        }
+
+        if (data.firstName !== undefined && data.firstName !== null && data.firstName !== '') {
+            if (data.firstName.length < 2 || data.firstName.length > 50) {
+                throw new ValidationError('First name must be between 2 and 50 characters');
+            }
+        }
+
+        if (data.lastName !== undefined && data.lastName !== null && data.lastName !== '') {
+            if (data.lastName.length < 2 || data.lastName.length > 50) {
+                throw new ValidationError('Last name must be between 2 and 50 characters');
+            }
+        }
+
+        if (data.phoneNumber !== undefined && data.phoneNumber !== null && data.phoneNumber !== '') {
+            if (!/^[0-9]+$/.test(data.phoneNumber) || data.phoneNumber.length < 10 || data.phoneNumber.length > 15) {
+                throw new ValidationError('Phone number must be numeric and between 10 and 15 digits');
+            }
+        }
+    }
+}
+
+// Bot Model Class
+class Bot extends JSONModel {
+    static filePath = botsFile;
+    static modelName = 'Bot';
+
+    static validate(data, isUpdate = false) {
+        if (!isUpdate || data.phoneNumber !== undefined) {
+            if (!data.phoneNumber) {
+                throw new ValidationError('Phone number is required');
+            }
+            
+            const cleanNumber = data.phoneNumber.replace(/[^0-9]/g, '');
+            if (!/^[0-9]+$/.test(cleanNumber) || cleanNumber.length < 10 || cleanNumber.length > 15) {
+                throw new ValidationError('Phone number must be numeric and between 10 and 15 digits');
+            }
+
+            const records = this._load();
+            const exists = records.find(r => r.phoneNumber === data.phoneNumber && r.id !== data.id);
+            if (exists) {
+                throw new ValidationError('Bot with this phone number already exists');
+            }
+        }
+    }
+
+    static async create(data = {}) {
+        const defaultSettings = {
+            autoViewStatus: true,
+            autoLikeStatus: true,
+            autoRecording: true,
+            prefix: '.',
+            autoReact: false,
+            antiCall: true,
+            antiDelete: true
+        };
+
+        const defaultStatistics = {
+            messagesReceived: 0,
+            messagesSent: 0,
+            commandsExecuted: 0,
+            uptime: 0
+        };
+
+        const botData = {
+            botName: 'PATRON-MINI',
+            status: 'disconnected',
+            isActive: true,
+            settings: defaultSettings,
+            statistics: defaultStatistics,
+            ...data
+        };
+
+        return super.create(botData);
+    }
+}
+
+// Database Connection Helper
+const database = {
+    sync: async () => {
+        fs.ensureDirSync(storePath);
+        if (!fs.existsSync(usersFile)) fs.writeJsonSync(usersFile, []);
+        if (!fs.existsSync(botsFile)) fs.writeJsonSync(botsFile, []);
+        return true;
+    },
+    authenticate: async () => true,
+    close: async () => true
+};
+
+const migrateToJSON = async () => {
+    try {
+        const usersExist = fs.existsSync(usersFile) && fs.readJsonSync(usersFile).length > 0;
+        const botsExist = fs.existsSync(botsFile) && fs.readJsonSync(botsFile).length > 0;
+
+        if (fs.existsSync(dbPath) && (!usersExist || !botsExist)) {
+            console.log(chalk.yellow('🔄 Found legacy SQLite database and JSON files are empty. Initiating automatic migration...'));
+            let sqlite3;
+            try {
+                sqlite3 = require('sqlite3').verbose();
+            } catch (err) {
+                console.log(chalk.yellow('⚠️ sqlite3 package is not installed. Skipping SQLite to JSON migration.'));
+                return;
+            }
+            const db = new sqlite3.Database(dbPath);
+
+            return new Promise((resolve) => {
+                db.serialize(() => {
+                    let usersMigrated = false;
+                    let botsMigrated = false;
+
+                    const checkComplete = () => {
+                        if (usersMigrated && botsMigrated) {
+                            db.close((err) => {
+                                if (err) console.error(chalk.red('Error closing SQLite during migration:'), err.message);
+                                resolve(true);
+                            });
+                        }
+                    };
+
+                    db.all("SELECT * FROM Users", [], (err, rows) => {
+                        if (err) {
+                            console.error(chalk.red('Error reading Users from SQLite:'), err.message);
+                            usersMigrated = true;
+                            checkComplete();
+                            return;
+                        }
+                        if (rows && rows.length > 0 && !usersExist) {
+                            const users = rows.map(row => ({
+                                ...row,
+                                isActive: row.isActive === undefined ? true : !!row.isActive,
+                                isBanned: !!row.isBanned,
+                                isAdmin: !!row.isAdmin,
+                                emailVerified: !!row.emailVerified
+                            }));
+                            fs.writeJsonSync(usersFile, users, { spaces: 2 });
+                            console.log(chalk.green(`✅ Migrated ${users.length} users successfully.`));
+                        }
+                        usersMigrated = true;
+                        checkComplete();
+                    });
+
+                    db.all("SELECT * FROM Bots", [], (err, rows) => {
+                        if (err) {
+                            console.error(chalk.red('Error reading Bots from SQLite:'), err.message);
+                            botsMigrated = true;
+                            checkComplete();
+                            return;
+                        }
+                        if (rows && rows.length > 0 && !botsExist) {
+                            const bots = rows.map(row => {
+                                let settings = row.settings;
+                                if (typeof settings === 'string') {
+                                    try { settings = JSON.parse(settings); } catch (e) {}
+                                }
+                                let statistics = row.statistics;
+                                if (typeof statistics === 'string') {
+                                    try { statistics = JSON.parse(statistics); } catch (e) {}
+                                }
+                                return {
+                                    ...row,
+                                    isActive: row.isActive === undefined ? true : !!row.isActive,
+                                    settings: settings || {},
+                                    statistics: statistics || {}
+                                };
+                            });
+                            fs.writeJsonSync(botsFile, bots, { spaces: 2 });
+                            console.log(chalk.green(`✅ Migrated ${bots.length} bots successfully.`));
+                        }
+                        botsMigrated = true;
+                        checkComplete();
+                    });
+                });
+            });
+        }
+    } catch (migrationError) {
+        console.error(chalk.red('⚠️ SQLite to JSON migration failed:'), migrationError.message);
+    }
+};
+
+const connectDatabase = async () => {
+    try {
+        await database.authenticate();
+        console.log(chalk.green('✅ Database connection (JSON Engine) established successfully.'));
+        await database.sync();
+        console.log(chalk.blue('📊 Database models (JSON files) synchronized.'));
+        await migrateToJSON();
+        return true;
+    } catch (error) {
+        console.error(chalk.red('❌ Unable to connect to the JSON database:'), error.message);
+        return false;
+    }
+};
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log(chalk.yellow('\n🔄 Gracefully shutting down database connection...'));
+    await database.close();
+    console.log(chalk.green('✅ Database connection closed.'));
+    process.exit(0);
+});
+
 module.exports = {
-    JSONModel,
-    ValidationError,
-    Op
+    User,
+    Bot,
+    Op,
+    connectDatabase,
+    database
 };
