@@ -1,744 +1,370 @@
 /**
- * ARCANE-MINI Main Server
+ * ARCANE-MINI Main Server (CLI Version)
  * Copyright © 2025 DarkSide Developers
  * Owner: DarkWinzo
  * GitHub: https://github.com/DarkWinzo
  */
 
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const path = require('path');
+const readline = require('readline');
 const chalk = require('chalk');
-const jwt = require('jsonwebtoken');
-const QRCode = require('qrcode');
-const multer = require('multer');
+const path = require('path');
+const fs = require('fs-extra');
 
 const config = require('./config');
-const { User, Bot, Op, connectDatabase } = require('./database');
-const { authenticateToken, requireAdmin, generalLimiter, authLimiter, botLimiter } = require('./middleware');
+const { connectDatabase, Bot } = require('./database');
 const { 
     startAllBots,
     createBotSession,
     getBotStatus,
     updateBotSettings,
-    disconnectBot,
-    getPairingCodeOnly
+    disconnectBot
 } = require('./services/botService');
 
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
 });
 
-// Global middleware
-app.use(helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false
-}));
-app.use(compression());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(generalLimiter);
+const question = (query) => new Promise((resolve) => rl.question(query, resolve));
 
-// Static files
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+let isLooping = true;
 
-// Socket.IO for real-time updates
-global.io = io;
-
-// -------------------------
-// Multer Configuration (Avatar Upload)
-// -------------------------
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, config.UPLOAD_PATH);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-const upload = multer({
-    storage,
-    limits: { fileSize: config.MAX_FILE_SIZE },
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
-
-        if (mimetype && extname) {
-            return cb(null, true);
-        } else {
-            cb(new Error('Only image files are allowed'));
-        }
-    }
-});
-
-// -------------------------
-// 1. Authentication Routes
-// -------------------------
-const authRouter = express.Router();
-
-// Register
-authRouter.post('/register', authLimiter, async (req, res) => {
+async function listBots() {
     try {
-        const { username, password } = req.body;
-
-        if (!username || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Username and password must be provided'
-            });
+        const bots = await Bot.findAll();
+        if (bots.length === 0) {
+            console.log(chalk.yellow('\nNo bots configured yet.'));
+            return;
         }
-
-        const existingUser = await User.findOne({
-            where: { username }
-        });
-
-        if (existingUser) {
-            return res.status(409).json({
-                success: false,
-                message: 'User with this username already exists'
-            });
-        }
-
-        const user = await User.create({
-            username,
-            password
-        });
-
-        const token = jwt.sign(
-            { userId: user.id, username: user.username },
-            config.JWT_SECRET,
-            { expiresIn: config.JWT_EXPIRES_IN }
-        );
-
-        res.status(201).json({
-            success: true,
-            message: 'User registered successfully',
-            data: {
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    isAdmin: user.isAdmin
-                },
-                token
-            }
-        });
-    } catch (error) {
-        console.error('Registration error:', error);
         
-        if (error.name === 'SequelizeValidationError') {
-            return res.status(400).json({
-                success: false,
-                message: error.errors[0].message
-            });
+        console.log(chalk.cyan('\nConfigured Bots:'));
+        for (const bot of bots) {
+            const statusInfo = await getBotStatus(bot.id);
+            const statusColor = statusInfo.online ? chalk.green('Connected') : chalk.red('Disconnected');
+            console.log(`- ${chalk.bold(bot.botName)} (${bot.phoneNumber}) [ID: ${bot.id}] - Status: ${statusColor}`);
         }
-
-        res.status(500).json({
-            success: false,
-            message: 'Registration failed'
-        });
+    } catch (err) {
+        console.error(chalk.red('Error listing bots:'), err.message);
     }
-});
+}
 
-// Login
-authRouter.post('/login', authLimiter, async (req, res) => {
+async function addNewBot() {
     try {
-        const { username, password } = req.body;
-
-        if (!username || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Username and password are required'
-            });
-        }
-
-        const user = await User.findOne({
-            where: { username }
-        });
-
-        if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid credentials'
-            });
-        }
-
-        if (user.isBanned) {
-            return res.status(403).json({
-                success: false,
-                message: 'Account is banned'
-            });
-        }
-
-        const isValidPassword = await user.comparePassword(password);
-        if (!isValidPassword) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid credentials'
-            });
-        }
-
-        await user.update({ lastLogin: new Date() });
-
-        const token = jwt.sign(
-            { userId: user.id, username: user.username },
-            config.JWT_SECRET,
-            { expiresIn: config.JWT_EXPIRES_IN }
-        );
-
-        res.json({
-            success: true,
-            message: 'Login successful',
-            data: {
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    isAdmin: user.isAdmin,
-                    theme: user.theme
-                },
-                token
-            }
-        });
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Login failed'
-        });
-    }
-});
-
-// -------------------------
-// 2. Bot Management Routes
-// -------------------------
-const botRouter = express.Router();
-
-botRouter.get('/my-bots', authenticateToken, async (req, res) => {
-    try {
-        const bots = await Bot.findAll({
-            where: { userId: req.user.id },
-            order: [['createdAt', 'DESC']]
-        });
-        res.json({ success: true, data: bots });
-    } catch (error) {
-        console.error('Get bots error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch bots' });
-    }
-});
-
-botRouter.post('/create', authenticateToken, botLimiter, async (req, res) => {
-    try {
-        const { phoneNumber, botName } = req.body;
+        console.log(chalk.cyan('\n--- Add & Pair a New Bot ---'));
+        const phoneNumber = await question('Enter WhatsApp Phone Number (with country code, e.g., 2348123456789): ');
         if (!phoneNumber) {
-            return res.status(400).json({ success: false, message: 'Phone number is required' });
+            console.log(chalk.red('Phone number is required.'));
+            return;
         }
         const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
+        if (!cleanNumber || cleanNumber.length < 10 || cleanNumber.length > 15) {
+            console.log(chalk.red('Invalid phone number format. Must be numeric and between 10 and 15 digits.'));
+            return;
+        }
+        
         const existingBot = await Bot.findOne({ where: { phoneNumber: cleanNumber } });
         if (existingBot) {
-            return res.status(409).json({ success: false, message: 'Bot with this phone number already exists' });
+            console.log(chalk.red(`A bot with number ${cleanNumber} already exists.`));
+            return;
         }
+
+        const botName = await question('Enter Bot Name (default: PATRON-MINI): ') || 'PATRON-MINI';
+        
+        console.log('Select Pairing Method:');
+        console.log('1. Pairing Code (Standard)');
+        console.log('2. QR Code (Prints QR in terminal)');
+        const methodChoice = await question('Select choice (1-2, default: 1): ');
+        const method = methodChoice.trim() === '2' ? 'qr' : 'pair';
+        
+        // Creating the Bot in DB first
         const bot = await Bot.create({
-            userId: req.user.id,
             phoneNumber: cleanNumber,
-            botName: botName || 'QUEEN-MINI',
-            status: 'disconnected'
+            botName: botName,
+            status: 'connecting'
         });
-        res.status(201).json({ success: true, message: 'Bot created successfully', data: bot });
-    } catch (error) {
-        console.error('Create bot error:', error);
-        res.status(500).json({ success: false, message: 'Failed to create bot' });
-    }
-});
-
-botRouter.post('/pair', authenticateToken, botLimiter, async (req, res) => {
-    try {
-        const { botId } = req.body;
-        const bot = await Bot.findOne({ where: { id: botId, userId: req.user.id } });
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
+        
+        console.log(chalk.yellow(`Bot entry created in database. Initiating session pairing for ${cleanNumber}...`));
+        
+        if (method === 'pair') {
+            const pairingCode = await createBotSession(bot, 'pair');
+            if (pairingCode) {
+                console.log(chalk.green(`\n==============================================`));
+                console.log(`  PAIRING CODE FOR ${cleanNumber}: ${chalk.bold(pairingCode)}`);
+                console.log(`==============================================\n`);
+                console.log(chalk.yellow('Enter this code in WhatsApp -> Linked Devices -> Link with Phone Number.'));
+            } else {
+                console.log(chalk.red('Failed to retrieve pairing code. Check logs.'));
+            }
+        } else {
+            console.log(chalk.yellow('Generating QR session... The QR code will print below. Please scan it:'));
+            await createBotSession(bot, 'qr');
         }
-        const pairingCode = await createBotSession(bot);
-        await bot.update({ pairingCode, status: 'connecting' });
-        global.io.to(`user_${req.user.id}`).emit('bot_status_update', {
-            botId: bot.id,
-            status: 'connecting',
-            pairingCode
+    } catch (err) {
+        console.error(chalk.red('Error adding new bot:'), err.message);
+    }
+}
+
+async function startBot() {
+    try {
+        const bots = await Bot.findAll();
+        if (bots.length === 0) {
+            console.log(chalk.yellow('\nNo bots configured yet.'));
+            return;
+        }
+        
+        console.log(chalk.cyan('\nSelect a bot to start:'));
+        bots.forEach((bot, index) => {
+            console.log(`${index + 1}. ${bot.botName} (${bot.phoneNumber})`);
         });
-        res.json({ success: true, data: { pairingCode, botId: bot.id } });
-    } catch (error) {
-        console.error('Pairing error:', error);
-        res.status(500).json({ success: false, message: 'Failed to generate pairing code' });
-    }
-});
-
-botRouter.post('/qr', authenticateToken, botLimiter, async (req, res) => {
-    try {
-        const { botId } = req.body;
-        const bot = await Bot.findOne({ where: { id: botId, userId: req.user.id } });
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
+        
+        const selection = await question('Enter bot number: ');
+        const index = parseInt(selection.trim()) - 1;
+        if (isNaN(index) || index < 0 || index >= bots.length) {
+            console.log(chalk.red('Invalid selection.'));
+            return;
         }
-        const qrData = await createBotSession(bot, 'qr');
-        const qrCode = await QRCode.toDataURL(qrData);
-        await bot.update({ qrCode, status: 'connecting' });
-        res.json({ success: true, data: { qrCode, botId: bot.id } });
-    } catch (error) {
-        console.error('QR generation error:', error);
-        res.status(500).json({ success: false, message: 'Failed to generate QR code' });
+        
+        const bot = bots[index];
+        console.log(chalk.yellow(`Starting session for ${bot.botName}...`));
+        await createBotSession(bot, 'pair', true);
+        console.log(chalk.green(`Session started for ${bot.botName}.`));
+    } catch (err) {
+        console.error(chalk.red('Error starting bot:'), err.message);
     }
-});
+}
 
-botRouter.put('/settings/:botId', authenticateToken, async (req, res) => {
+async function stopBot() {
     try {
-        const { botId } = req.params;
-        const settings = req.body;
-        const bot = await Bot.findOne({ where: { id: botId, userId: req.user.id } });
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
+        const bots = await Bot.findAll();
+        if (bots.length === 0) {
+            console.log(chalk.yellow('\nNo bots configured yet.'));
+            return;
         }
+        
+        console.log(chalk.cyan('\nSelect a bot to disconnect:'));
+        bots.forEach((bot, index) => {
+            console.log(`${index + 1}. ${bot.botName} (${bot.phoneNumber})`);
+        });
+        
+        const selection = await question('Enter bot number: ');
+        const index = parseInt(selection.trim()) - 1;
+        if (isNaN(index) || index < 0 || index >= bots.length) {
+            console.log(chalk.red('Invalid selection.'));
+            return;
+        }
+        
+        const bot = bots[index];
+        console.log(chalk.yellow(`Disconnecting ${bot.botName}...`));
+        await disconnectBot(bot.id);
+        console.log(chalk.green(`Bot ${bot.botName} disconnected.`));
+    } catch (err) {
+        console.error(chalk.red('Error stopping bot:'), err.message);
+    }
+}
+
+async function deleteBot() {
+    try {
+        const bots = await Bot.findAll();
+        if (bots.length === 0) {
+            console.log(chalk.yellow('\nNo bots configured yet.'));
+            return;
+        }
+        
+        console.log(chalk.cyan('\nSelect a bot to delete:'));
+        bots.forEach((bot, index) => {
+            console.log(`${index + 1}. ${bot.botName} (${bot.phoneNumber})`);
+        });
+        
+        const selection = await question('Enter bot number: ');
+        const index = parseInt(selection.trim()) - 1;
+        if (isNaN(index) || index < 0 || index >= bots.length) {
+            console.log(chalk.red('Invalid selection.'));
+            return;
+        }
+        
+        const bot = bots[index];
+        const confirmation = await question(`Are you sure you want to delete ${bot.botName}? This will clear its session folder and settings. (y/N): `);
+        if (confirmation.trim().toLowerCase() !== 'y') {
+            console.log(chalk.yellow('Deletion cancelled.'));
+            return;
+        }
+        
+        console.log(chalk.yellow(`Deleting ${bot.botName}...`));
+        await disconnectBot(bot.id);
+        await bot.destroy();
+        
+        // Clean session path
+        const sessionPath = path.join('./sessions', `session_${bot.id}`);
+        try {
+            if (fs.existsSync(sessionPath)) {
+                fs.removeSync(sessionPath);
+            }
+        } catch (e) {
+            console.error(`Error deleting session directory: ${e.message}`);
+        }
+        
+        console.log(chalk.green(`Bot ${bot.botName} deleted successfully.`));
+    } catch (err) {
+        console.error(chalk.red('Error deleting bot:'), err.message);
+    }
+}
+
+async function manageSettings() {
+    try {
+        const bots = await Bot.findAll();
+        if (bots.length === 0) {
+            console.log(chalk.yellow('\nNo bots configured yet.'));
+            return;
+        }
+        
+        console.log(chalk.cyan('\nSelect a bot to manage settings:'));
+        bots.forEach((bot, index) => {
+            console.log(`${index + 1}. ${bot.botName} (${bot.phoneNumber})`);
+        });
+        
+        const selection = await question('Enter bot number: ');
+        const index = parseInt(selection.trim()) - 1;
+        if (isNaN(index) || index < 0 || index >= bots.length) {
+            console.log(chalk.red('Invalid selection.'));
+            return;
+        }
+        
+        const bot = bots[index];
+        const settings = bot.settings || {};
+        
+        console.log(chalk.cyan(`\nCurrent Settings for ${bot.botName}:`));
+        console.log(`1. Prefix: "${settings.prefix || '.'}"`);
+        console.log(`2. Auto View Status: ${settings.autoViewStatus ? 'Enabled' : 'Disabled'}`);
+        console.log(`3. Auto Like Status: ${settings.autoLikeStatus ? 'Enabled' : 'Disabled'}`);
+        console.log(`4. Auto Recording: ${settings.autoRecording ? 'Enabled' : 'Disabled'}`);
+        console.log(`5. Anti Call: ${settings.antiCall ? 'Enabled' : 'Disabled'}`);
+        console.log(`6. Anti Delete: ${settings.antiDelete ? 'Enabled' : 'Disabled'}`);
+        console.log('7. Go Back');
+        
+        const option = await question('Choose a setting to toggle/change (1-7): ');
+        switch (option.trim()) {
+            case '1':
+                const newPrefix = await question(`Enter new prefix (current: ${settings.prefix || '.'}): `);
+                if (newPrefix) settings.prefix = newPrefix;
+                break;
+            case '2':
+                settings.autoViewStatus = !settings.autoViewStatus;
+                break;
+            case '3':
+                settings.autoLikeStatus = !settings.autoLikeStatus;
+                break;
+            case '4':
+                settings.autoRecording = !settings.autoRecording;
+                break;
+            case '5':
+                settings.antiCall = !settings.antiCall;
+                break;
+            case '6':
+                settings.antiDelete = !settings.antiDelete;
+                break;
+            case '7':
+                return;
+            default:
+                console.log(chalk.red('Invalid selection.'));
+                return;
+        }
+        
         await bot.update({ settings });
-        if (bot.status === 'connected') {
-            await updateBotSettings(botId, settings);
-        }
-        global.io.to(`user_${req.user.id}`).emit('bot_settings_update', { botId: bot.id, settings });
-        res.json({ success: true, message: 'Settings updated successfully', data: bot });
-    } catch (error) {
-        console.error('Update settings error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update settings' });
+        await updateBotSettings(bot.id, settings);
+        console.log(chalk.green('Settings updated successfully.'));
+    } catch (err) {
+        console.error(chalk.red('Error managing settings:'), err.message);
     }
-});
+}
 
-botRouter.delete('/:botId', authenticateToken, async (req, res) => {
-    try {
-        const { botId } = req.params;
-        const bot = await Bot.findOne({ where: { id: botId, userId: req.user.id } });
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
-        }
-        await bot.destroy();
-        res.json({ success: true, message: 'Bot deleted successfully' });
-    } catch (error) {
-        console.error('Delete bot error:', error);
-        res.status(500).json({ success: false, message: 'Failed to delete bot' });
-    }
-});
-
-botRouter.post('/disconnect', authenticateToken, async (req, res) => {
-    try {
-        const { botId } = req.body;
-        const bot = await Bot.findOne({ where: { id: botId, userId: req.user.id } });
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
-        }
-        await disconnectBot(botId);
-        global.io.to(`user_${req.user.id}`).emit('bot_status_update', { botId: bot.id, status: 'disconnected' });
-        res.json({ success: true, message: 'Bot disconnected successfully' });
-    } catch (error) {
-        console.error('Disconnect bot error:', error);
-        res.status(500).json({ success: false, message: 'Failed to disconnect bot' });
-    }
-});
-
-botRouter.get('/status/:botId', authenticateToken, async (req, res) => {
-    try {
-        const { botId } = req.params;
-        const bot = await Bot.findOne({ where: { id: botId, userId: req.user.id } });
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
-        }
-        const status = await getBotStatus(botId);
-        res.json({ success: true, data: { ...bot.toJSON(), liveStatus: status } });
-    } catch (error) {
-        console.error('Get status error:', error);
-        res.status(500).json({ success: false, message: 'Failed to get bot status' });
-    }
-});
-
-// -------------------------
-// 3. Admin Console Routes
-// -------------------------
-const adminRouter = express.Router();
-
-adminRouter.post('/auth', authenticateToken, async (req, res) => {
-    try {
-        const { password } = req.body;
-        if (password === config.ADMIN_PASSWORD) {
-            await User.update({ isAdmin: true }, { where: { id: req.user.id } });
-            return res.json({ success: true, message: 'Admin access granted successfully' });
-        }
-        res.status(401).json({ success: false, message: 'Invalid admin password' });
-    } catch (error) {
-        console.error('Admin auth error:', error);
-        res.status(500).json({ success: false, message: 'Failed to process admin authentication' });
-    }
-});
-
-adminRouter.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const totalUsers = await User.count();
-        const totalBots = await Bot.count();
-        const activeBots = await Bot.count({ where: { status: 'connected' } });
-        const bannedUsers = await User.count({ where: { isBanned: true } });
-
-        const recentUsers = await User.findAll({
-            limit: 10,
-            order: [['createdAt', 'DESC']],
-            attributes: ['id', 'username', 'createdAt', 'isActive', 'isBanned', 'isAdmin']
-        });
-
-        const recentBots = await Bot.findAll({
-            limit: 10,
-            order: [['createdAt', 'DESC']],
-            include: [{ model: User, as: 'user', attributes: ['username'] }]
-        });
-
-        res.json({
-            success: true,
-            data: {
-                stats: { totalUsers, totalBots, activeBots, bannedUsers },
-                recentUsers,
-                recentBots
-            }
-        });
-    } catch (error) {
-        console.error('Dashboard error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch dashboard data' });
-    }
-});
-
-adminRouter.get('/users', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { page = 1, limit = 20, search = '' } = req.query;
-        const offset = (page - 1) * limit;
-
-        const whereClause = search ? {
-            [Op.or]: [
-                { username: { [Op.iLike]: `%${search}%` } },
-                { firstName: { [Op.iLike]: `%${search}%` } },
-                { lastName: { [Op.iLike]: `%${search}%` } }
-            ]
-        } : {};
-
-        const { count, rows: users } = await User.findAndCountAll({
-            where: whereClause,
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            order: [['createdAt', 'DESC']],
-            attributes: { exclude: ['password'] },
-            include: [{ model: Bot, as: 'bots', attributes: ['id', 'phoneNumber', 'status', 'createdAt'] }]
-        });
-
-        res.json({
-            success: true,
-            data: {
-                users,
-                pagination: {
-                    total: count,
-                    page: parseInt(page),
-                    limit: parseInt(limit),
-                    totalPages: Math.ceil(count / limit)
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Get users error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch users' });
-    }
-});
-
-adminRouter.put('/users/:userId/ban', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const { banned } = req.body;
-        const user = await User.findByPk(userId);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-        if (user.isAdmin) {
-            return res.status(403).json({ success: false, message: 'Cannot ban admin users' });
-        }
-        await user.update({ isBanned: banned });
-        if (banned) {
-            await Bot.update({ status: 'disconnected' }, { where: { userId } });
-        }
-        res.json({ success: true, message: `User ${banned ? 'banned' : 'unbanned'} successfully` });
-    } catch (error) {
-        console.error('Ban user error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update user status' });
-    }
-});
-
-adminRouter.get('/bots', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { page = 1, limit = 20, status = '' } = req.query;
-        const offset = (page - 1) * limit;
-        const whereClause = status ? { status } : {};
-
-        const { count, rows: bots } = await Bot.findAndCountAll({
-            where: whereClause,
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            order: [['createdAt', 'DESC']],
-            include: [{ model: User, as: 'user', attributes: ['id', 'username', 'firstName', 'lastName'] }]
-        });
-
-        res.json({
-            success: true,
-            data: {
-                bots,
-                pagination: {
-                    total: count,
-                    page: parseInt(page),
-                    limit: parseInt(limit),
-                    totalPages: Math.ceil(count / limit)
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Get bots error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch bots' });
-    }
-});
-
-adminRouter.put('/bots/:botId/disconnect', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { botId } = req.params;
-        const bot = await Bot.findByPk(botId);
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
-        }
-        await bot.update({ status: 'disconnected' });
-        global.io.to(`user_${bot.userId}`).emit('bot_status_update', { botId: bot.id, status: 'disconnected' });
-        res.json({ success: true, message: 'Bot disconnected successfully' });
-    } catch (error) {
-        console.error('Disconnect bot error:', error);
-        res.status(500).json({ success: false, message: 'Failed to disconnect bot' });
-    }
-});
-
-adminRouter.delete('/bots/:botId', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { botId } = req.params;
-        const bot = await Bot.findByPk(botId);
-        if (!bot) {
-            return res.status(404).json({ success: false, message: 'Bot not found' });
-        }
-        await bot.destroy();
-        res.json({ success: true, message: 'Bot deleted successfully' });
-    } catch (error) {
-        console.error('Delete bot error:', error);
-        res.status(500).json({ success: false, message: 'Failed to delete bot' });
-    }
-});
-
-// -------------------------
-// 4. User Profile Routes
-// -------------------------
-const userRouter = express.Router();
-
-userRouter.get('/profile', authenticateToken, async (req, res) => {
-    try {
-        const user = await User.findByPk(req.user.id, { attributes: { exclude: ['password'] } });
-        res.json({ success: true, data: user });
-    } catch (error) {
-        console.error('Get profile error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch profile' });
-    }
-});
-
-userRouter.put('/profile', authenticateToken, async (req, res) => {
-    try {
-        const { firstName, lastName, phoneNumber, theme } = req.body;
-        const user = await User.findByPk(req.user.id);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-        await user.update({
-            firstName: firstName || user.firstName,
-            lastName: lastName || user.lastName,
-            phoneNumber: phoneNumber || user.phoneNumber,
-            theme: theme || user.theme
-        });
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            data: {
-                id: user.id,
-                username: user.username,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phoneNumber: user.phoneNumber,
-                theme: user.theme
-            }
-        });
-    } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update profile' });
-    }
-});
-
-userRouter.post('/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file uploaded' });
-        }
-        const user = await User.findByPk(req.user.id);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-        const avatarUrl = `/uploads/${req.file.filename}`;
-        await user.update({ avatar: avatarUrl });
-        res.json({ success: true, message: 'Avatar uploaded successfully', data: { avatar: avatarUrl } });
-    } catch (error) {
-        console.error('Upload avatar error:', error);
-        res.status(500).json({ success: false, message: 'Failed to upload avatar' });
-    }
-});
-
-userRouter.put('/password', authenticateToken, async (req, res) => {
-    try {
-        const { currentPassword, newPassword } = req.body;
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({ success: false, message: 'Current and new passwords are required' });
-        }
-        const user = await User.findByPk(req.user.id);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-        const isValidPassword = await user.comparePassword(currentPassword);
-        if (!isValidPassword) {
-            return res.status(400).json({ success: false, message: 'Current password is incorrect' });
-        }
-        await user.update({ password: newPassword });
-        res.json({ success: true, message: 'Password changed successfully' });
-    } catch (error) {
-        console.error('Change password error:', error);
-        res.status(500).json({ success: false, message: 'Failed to change password' });
-    }
-});
-
-// -------------------------
-// 5. Standalone Pairing Route
-// -------------------------
-const pairRouter = express.Router();
-
-pairRouter.get('/', async (req, res) => {
-    try {
-        const phoneNumber = req.query.number;
-        if (!phoneNumber) {
-            return res.status(400).json({ success: false, message: 'Phone number is required. Use /pair?number=your_number' });
-        }
-        const code = await getPairingCodeOnly(phoneNumber);
-        res.json({ success: true, code: code });
-    } catch (error) {
-        console.error('Pairing route error:', error);
-        res.status(500).json({ success: false, message: error.message || 'Failed to generate pairing code' });
-    }
-});
-
-// API Routes mounting
-app.use('/api/auth', authRouter);
-app.use('/api/bot', botRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/user', userRouter);
-app.use('/pair', pairRouter);
-
-// Serve main application
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Route not found'
-    });
-});
-
-// Global error handler
-app.use((error, req, res, next) => {
-    console.error(chalk.red('Server Error:'), error);
-    res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-    });
-});
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-    console.log(chalk.blue('Client connected:'), socket.id);
+async function mainMenu() {
+    if (!isLooping) return;
     
-    socket.on('join', (room) => {
-        socket.join(room);
-        console.log(chalk.cyan(`Client ${socket.id} joined room: ${room}`));
-    });
+    console.log(chalk.blue('\n===================================='));
+    console.log(chalk.green(`  ARCANE-MINI v${config.APP_VERSION} Console Manager`));
+    console.log(chalk.blue('===================================='));
+    console.log('1. List Configured Bots');
+    console.log('2. Add & Pair a New Bot');
+    console.log('3. Start/Connect a Bot');
+    console.log('4. Disconnect a Bot');
+    console.log('5. Delete a Bot');
+    console.log('6. Manage Bot Settings');
+    console.log('7. Exit');
+    console.log(chalk.blue('===================================='));
     
-    socket.on('disconnect', () => {
-        console.log(chalk.yellow('Client disconnected:'), socket.id);
-    });
-});
+    const choice = await question('Select an option (1-7): ');
+    
+    switch (choice.trim()) {
+        case '1':
+            await listBots();
+            break;
+        case '2':
+            await addNewBot();
+            break;
+        case '3':
+            await startBot();
+            break;
+        case '4':
+            await stopBot();
+            break;
+        case '5':
+            await deleteBot();
+            break;
+        case '6':
+            await manageSettings();
+            break;
+        case '7':
+            console.log(chalk.yellow('Exiting console manager...'));
+            isLooping = false;
+            rl.close();
+            process.exit(0);
+        default:
+            console.log(chalk.red('Invalid option, please choose 1-7.'));
+            break;
+    }
+    
+    if (isLooping) {
+        setTimeout(mainMenu, 1000);
+    }
+}
 
-const startServer = async () => {
+const startApp = async () => {
     try {
         // Connect to database
         await connectDatabase();
         
-        // Start server
-        const PORT = config.PORT;
-        const HOST = config.HOST;
-        server.listen(PORT, HOST, async () => {
-            const displayHost = config.DISPLAY_HOST;
-            console.log(chalk.green(`
+        console.log(chalk.green(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                        ARCANE-MINI v${config.APP_VERSION}     
 ║                  Advanced WhatsApp Bot System                
 ║                                                              
-║  🚀 Server:   http://${displayHost}:${PORT}                        
 ║  📊 Database: Connected                                      
-║  🔒 Security: Enabled                                        
-║  ⚡ Real-time: Socket.IO Active                              
+║  ⚡ CLI Console: Active                                      
 ║                                                              
 ║  Copyright © ${config.COPYRIGHT.YEAR} ${config.COPYRIGHT.COMPANY} 
 ║  Owner: ${config.COPYRIGHT.OWNER}                             
 ║  GitHub: ${config.COPYRIGHT.GITHUB}                          
 ╚══════════════════════════════════════════════════════════════╝
-            `));
-            
-            // Auto-restart active bots
-            await startAllBots();
-        });
+        `));
+        
+        // Auto-restart active bots
+        await startAllBots();
+        
+        // Show main menu
+        mainMenu();
 
     } catch (error) {
-        console.error(chalk.red('Failed to start server:'), error);
+        console.error(chalk.red('Failed to start application:'), error);
         process.exit(1);
     }
 };
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log(chalk.yellow('SIGTERM received, shutting down gracefully...'));
-    server.close(() => {
-        console.log(chalk.green('Server closed'));
-        process.exit(0);
-    });
+process.on('SIGINT', () => {
+    console.log(chalk.yellow('\nSIGINT received, shutting down gracefully...'));
+    isLooping = false;
+    rl.close();
+    process.exit(0);
 });
 
-startServer();
+startApp();

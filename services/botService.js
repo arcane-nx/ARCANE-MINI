@@ -68,7 +68,7 @@ const createBotSession = async (bot, method = 'pair', isReconnect = false) => {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, logger),
             },
-            printQRInTerminal: false,
+            printQRInTerminal: method === 'qr',
             logger,
             version,
             browser: ["Ubuntu", "Chrome", "20.0.04"],
@@ -96,10 +96,12 @@ const createBotSession = async (bot, method = 'pair', isReconnect = false) => {
                 });
                 
                 // Emit real-time update
-                global.io.emit('bot_status_update', {
-                    botId: bot.id,
-                    status: 'connected'
-                });
+                if (global.io) {
+                    global.io.emit('bot_status_update', {
+                        botId: bot.id,
+                        status: 'connected'
+                    });
+                }
             } else if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
@@ -272,10 +274,12 @@ const updateBotSettings = async (botId, settings) => {
         console.log(`Updated settings for bot ${botId}:`, settings);
         
         // Emit real-time update
-        global.io.emit('bot_settings_update', {
-            botId,
-            settings
-        });
+        if (global.io) {
+            global.io.emit('bot_settings_update', {
+                botId,
+                settings
+            });
+        }
     }
 };
 
