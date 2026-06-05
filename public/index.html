@@ -689,8 +689,8 @@
 
                     <form id="loginFormElement">
                         <div class="form-group">
-                            <label class="form-label" for="loginEmail">Email Address</label>
-                            <input type="email" id="loginEmail" class="form-input" placeholder="Enter your email" required>
+                            <label class="form-label" for="loginEmail">Username or Email</label>
+                            <input type="text" id="loginEmail" class="form-input" placeholder="Enter your username or email" required>
                         </div>
 
                         <div class="form-group">
@@ -722,28 +722,6 @@
                         <div class="form-group">
                             <label class="form-label" for="registerUsername">Username</label>
                             <input type="text" id="registerUsername" class="form-input" placeholder="Choose a username" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="registerEmail">Email Address</label>
-                            <input type="email" id="registerEmail" class="form-input" placeholder="Enter your email" required>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div class="form-group">
-                                <label class="form-label" for="registerFirstName">First Name</label>
-                                <input type="text" id="registerFirstName" class="form-input" placeholder="First name" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label" for="registerLastName">Last Name</label>
-                                <input type="text" id="registerLastName" class="form-input" placeholder="Last name" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="registerPhone">Phone Number</label>
-                            <input type="tel" id="registerPhone" class="form-input" placeholder="Enter your phone number" requiredHOW>
                         </div>
 
                         <div class="form-group">
@@ -1217,10 +1195,6 @@
 
         async function handleRegister() {
             const username = document.getElementById('registerUsername').value;
-            const email = document.getElementById('registerEmail').value;
-            const firstName = document.getElementById('registerFirstName').value;
-            const lastName = document.getElementById('registerLastName').value;
-            const phoneNumber = document.getElementById('registerPhone').value;
             const password = document.getElementById('registerPassword').value;
             const btn = document.getElementById('registerBtn');
             const alert = document.getElementById('registerAlert');
@@ -1233,7 +1207,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        username, email, firstName, lastName, phoneNumber, password
+                        username, password
                     })
                 });
 

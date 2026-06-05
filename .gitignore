@@ -1,2 +1,9 @@
 node_modules/
 .env
+
+# WhatsApp Bot Sessions
+sessions/
+
+# JSON Database Files
+database/store/users.json
+database/store/bots.json

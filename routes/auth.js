@@ -5,11 +5,9 @@
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
 const { Op } = require('../database/connection');
 const { User } = require('../database/models');
 const { authLimiter } = require('../middleware/rateLimiter');
-const { sendWelcomeEmail } = require('../services/emailService');
 const config = require('../config');
 
 const router = express.Router();
@@ -17,48 +15,33 @@ const router = express.Router();
 // Register
 router.post('/register', authLimiter, async (req, res) => {
     try {
-        const { username, email, password, firstName, lastName, phoneNumber } = req.body;
+        const { username, password } = req.body;
 
         // Validation
-        if (!username || !email || !password || !firstName || !lastName) {
+        if (!username || !password) {
             return res.status(400).json({
                 success: false,
-                message: 'All required fields must be provided'
+                message: 'Username and password must be provided'
             });
         }
 
         // Check if user exists
         const existingUser = await User.findOne({
-            where: {
-                [Op.or]: [{ email }, { username }]
-            }
+            where: { username }
         });
 
         if (existingUser) {
             return res.status(409).json({
                 success: false,
-                message: 'User with this email or username already exists'
+                message: 'User with this username already exists'
             });
         }
 
         // Create user
-        const emailVerificationToken = uuidv4();
         const user = await User.create({
             username,
-            email,
-            password,
-            firstName,
-            lastName,
-            phoneNumber,
-            emailVerificationToken
+            password
         });
-
-        // Send welcome email
-        try {
-            await sendWelcomeEmail(user.email, user.firstName, emailVerificationToken);
-        } catch (emailError) {
-            console.error('Failed to send welcome email:', emailError);
-        }
 
         // Generate JWT
         const token = jwt.sign(
@@ -77,8 +60,7 @@ router.post('/register', authLimiter, async (req, res) => {
                     email: user.email,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    isAdmin: user.isAdmin,
-                    emailVerified: user.emailVerified
+                    isAdmin: user.isAdmin
                 },
                 token
             }
@@ -108,12 +90,19 @@ router.post('/login', authLimiter, async (req, res) => {
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
-                message: 'Email and password are required'
+                message: 'Username/Email and password are required'
             });
         }
 
-        // Find user
-        const user = await User.findOne({ where: { email } });
+        // Find user by email or username
+        const user = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { email: email },
+                    { username: email }
+                ]
+            }
+        });
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -159,7 +148,6 @@ router.post('/login', authLimiter, async (req, res) => {
                     firstName: user.firstName,
                     lastName: user.lastName,
                     isAdmin: user.isAdmin,
-                    emailVerified: user.emailVerified,
                     theme: user.theme
                 },
                 token
@@ -170,77 +158,6 @@ router.post('/login', authLimiter, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Login failed'
-        });
-    }
-});
-
-// Verify email
-router.get('/verify-email/:token', async (req, res) => {
-    try {
-        const { token } = req.params;
-
-        const user = await User.findOne({
-            where: { emailVerificationToken: token }
-        });
-
-        if (!user) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid verification token'
-            });
-        }
-
-        await user.update({
-            emailVerified: true,
-            emailVerificationToken: null
-        });
-
-        res.json({
-            success: true,
-            message: 'Email verified successfully'
-        });
-    } catch (error) {
-        console.error('Email verification error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Email verification failed'
-        });
-    }
-});
-
-// Forgot password
-router.post('/forgot-password', authLimiter, async (req, res) => {
-    try {
-        const { email } = req.body;
-
-        const user = await User.findOne({ where: { email } });
-        if (!user) {
-            return res.json({
-                success: true,
-                message: 'If the email exists, a reset link has been sent'
-            });
-        }
-
-        const resetToken = uuidv4();
-        const resetExpires = new Date(Date.now() + 3600000); // 1 hour
-
-        await user.update({
-            resetPasswordToken: resetToken,
-            resetPasswordExpires: resetExpires
-        });
-
-        // Send reset email (implement in emailService)
-        // await sendPasswordResetEmail(user.email, resetToken);
-
-        res.json({
-            success: true,
-            message: 'If the email exists, a reset link has been sent'
-        });
-    } catch (error) {
-        console.error('Forgot password error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to process request'
         });
     }
 });

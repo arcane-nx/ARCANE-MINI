@@ -1,23 +1,10 @@
 [
   {
-    "id": "a5ecf75b-5d74-4126-b112-359ac823ba42",
-    "username": "Arcanenx12",
-    "email": "bolajiolabode2007@gmail.com",
-    "password": "$2a$12$6DgjD3gjyx4ezcL1wvP.X.oAhrHHGfiqibd1rWTc5YDcPFLP8qys.",
-    "firstName": "arcane",
-    "lastName": "nx",
-    "phoneNumber": "07041039367",
-    "isActive": true,
-    "isBanned": false,
-    "isAdmin": false,
-    "emailVerified": false,
-    "emailVerificationToken": "ed27c104-8569-472c-93ce-8d44401e8547",
-    "resetPasswordToken": null,
-    "resetPasswordExpires": null,
-    "lastLogin": null,
-    "theme": "dark",
-    "avatar": null,
-    "createdAt": "2026-02-07 14:26:53.813 +00:00",
-    "updatedAt": "2026-02-07 14:26:53.813 +00:00"
+    "id": "28377bae-ee19-4b56-b40d-ee44a2b71dce",
+    "createdAt": "2026-06-05T15:29:53.688Z",
+    "updatedAt": "2026-06-05T15:29:53.688Z",
+    "username": "arcane_nx",
+    "password": "$2a$12$WjdkLEfRmsqZHdGrHcDZsOdx0VWnSo5oJUlQGp3NXKCY3EsL8Trc6",
+    "emailVerificationToken": "b35a4828-97f2-4bdc-b71e-41b899c09a1f"
   }
 ]

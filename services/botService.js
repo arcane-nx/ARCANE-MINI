@@ -31,8 +31,17 @@ const createBotSession = async (bot, method = 'pair', isReconnect = false) => {
     try {
         const sessionPath = path.join(SESSION_BASE_PATH, `session_${bot.id}`);
         
-        // If it's a new pairing request and not a reconnection, and not registered, 
-        // we might want to start fresh. But let's keep it for now and just handle the socket.
+        // Clear corrupt or stale session files if starting a new pairing request
+        if (method === 'pair' && !isReconnect) {
+            try {
+                if (fs.existsSync(sessionPath)) {
+                    console.log(`Clearing existing session at ${sessionPath} for new pairing request`);
+                    fs.removeSync(sessionPath);
+                }
+            } catch (err) {
+                console.error(`Error clearing existing session for new pairing:`, err.message);
+            }
+        }
         
         // Close existing socket if any
         if (activeSockets.has(bot.id)) {
@@ -102,6 +111,16 @@ const createBotSession = async (bot, method = 'pair', isReconnect = false) => {
                 });
                 
                 activeSockets.delete(bot.id);
+                
+                // Clear session path on hard logout (401)
+                if (statusCode === DisconnectReason.loggedOut) {
+                    try {
+                        console.log(`Clearing session path due to logged out state: ${sessionPath}`);
+                        fs.removeSync(sessionPath);
+                    } catch (err) {
+                        console.error(`Error removing session path for ${bot.id}:`, err.message);
+                    }
+                }
                 
                 if (shouldReconnect) {
                     // Only reconnect automatically if it was already registered OR if it was already connected

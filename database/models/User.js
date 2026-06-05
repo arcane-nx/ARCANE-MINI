@@ -37,8 +37,8 @@ class User extends JSONModel {
             }
         }
         
-        if (!isUpdate || data.email !== undefined) {
-            if (!data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+        if (data.email !== undefined && data.email !== null && data.email !== '') {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
                 throw new ValidationError('Invalid email format');
             }
             // Check email uniqueness
@@ -55,20 +55,20 @@ class User extends JSONModel {
             }
         }
 
-        if (!isUpdate || data.firstName !== undefined) {
-            if (!data.firstName || data.firstName.length < 2 || data.firstName.length > 50) {
+        if (data.firstName !== undefined && data.firstName !== null && data.firstName !== '') {
+            if (data.firstName.length < 2 || data.firstName.length > 50) {
                 throw new ValidationError('First name must be between 2 and 50 characters');
             }
         }
 
-        if (!isUpdate || data.lastName !== undefined) {
-            if (!data.lastName || data.lastName.length < 2 || data.lastName.length > 50) {
+        if (data.lastName !== undefined && data.lastName !== null && data.lastName !== '') {
+            if (data.lastName.length < 2 || data.lastName.length > 50) {
                 throw new ValidationError('Last name must be between 2 and 50 characters');
             }
         }
 
-        if (data.phoneNumber !== undefined && data.phoneNumber !== null) {
-            if (data.phoneNumber !== '' && (!/^[0-9]+$/.test(data.phoneNumber) || data.phoneNumber.length < 10 || data.phoneNumber.length > 15)) {
+        if (data.phoneNumber !== undefined && data.phoneNumber !== null && data.phoneNumber !== '') {
+            if (!/^[0-9]+$/.test(data.phoneNumber) || data.phoneNumber.length < 10 || data.phoneNumber.length > 15) {
                 throw new ValidationError('Phone number must be numeric and between 10 and 15 digits');
             }
         }
